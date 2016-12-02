@@ -47,5 +47,6 @@ class Batch_Generator:
             while c != '>' and c != '':
                 question_sentence += c
                 c = self.input_file.read(1)
+
             batch.append(question_sentence)
         return batch
