@@ -8,8 +8,8 @@ import batch_generator
 
 
 class EndToEndNetwork:
-    def __init__(self, num_hops=1, batch_size=100, validation_size=400, sentence_input_embed_dim=100,
-                 sentence_output_embed_dim=100):
+    def __init__(self, num_hops=1, batch_size=100, validation_size=400, sentence_input_embed_dim=200,
+                 sentence_output_embed_dim=200):
         self.batch_generator = batch_generator.BatchGenerator(batch_size)
         self.num_hops = num_hops
         self.question_embed_dim = sentence_input_embed_dim
@@ -20,7 +20,6 @@ class EndToEndNetwork:
         self.batch_size = batch_size
         self.validation_size = validation_size
         self.session = tf.Session()
-        self.batch = self.batch_generator.get_text_batch(encode=True)
         self.bb = tf.Variable(tf.truncated_normal([1, self.question_embed_dim], stddev=0.1))
         self.ba = tf.Variable(tf.truncated_normal([1, self.sentence_input_embed_dim], stddev=0.1))
         self.bc = tf.Variable(tf.truncated_normal([1, self.sentence_ouput_embed_dim], stddev=0.1))
@@ -163,7 +162,7 @@ class EndToEndNetwork:
 
     def train(self, steps):
         for i in range(steps):
-            batch = self.batch_generator.get_text_batch(encode=True)
+            batch = self.batch_generator.get_text_batch(encode=True, batch_type='train')
             # batch = self.batch
             batch_dic = {self.batch_placeholder[0]: batch[2], self.batch_placeholder[1]: batch[3],
                          self.batch_placeholder[2]: batch[4]}
@@ -173,7 +172,7 @@ class EndToEndNetwork:
             self.session.run(self.make_step, feed_dict=batch_dic)
 
     def validate(self, print_examples, print_score=True):
-        validation_set = self.batch_generator.get_text_batch(encode=True, batch_size=self.validation_size)
+        validation_set = self.batch_generator.get_text_batch(encode=True, batch_size=self.validation_size, batch_type='validation')
         # validation_set = self.batch
         validation_dict = {self.validation_placeholder[0]: validation_set[2],
                            self.validation_placeholder[1]: validation_set[3],
@@ -202,7 +201,7 @@ def train_yahoo():
     n = EndToEndNetwork()
     n.build_graph()
     n.init_variables()
-    n.train(300)
+    n.train(700)
     n.validate(2)
 
 train_yahoo()

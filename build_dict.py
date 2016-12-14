@@ -26,4 +26,3 @@ print(len(encode_dict))
 
 pickle.dump(encode_dict, open('data/encode_dict.txt', 'wb'))
 
-

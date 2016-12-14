@@ -15,6 +15,14 @@ class BatchGenerator:
         self.encoding_length = encoding_length
         self.num_questions = 285254 / 2
 
+        self.train_text = open("data/train_text.txt", "r")
+        self.train_num = iter(map(int, open("data/train_num.txt", "r").read().split()))
+        self.train_embeddings = open("data/train_embeddings.txt", "rb")
+
+        self.validation_text = open("data/validation_text.txt", "r")
+        self.validation_num = iter(map(int, open("data/validation_num.txt", "r").read().split()))
+        self.validation_embeddings = open("data/validation_embeddings.txt", "rb")
+
     def encode_word(self, word):
         if word.lower() in self.encode_dict:
             return self.encode_dict[word.lower()]
@@ -33,31 +41,37 @@ class BatchGenerator:
         return cnt
 
 
-    def read_qa(self):
+    def read_qa(self, text_file):
         #Reads sentences from text file, until meets > symbol
-        c = self.input_file.read(1)
+        c = text_file.read(1)
         if c == '':
-            self.input_file.seek(0)
-            self.input_file.read(1)
+            text_file.seek(0)
+            text_file.read(1)
         sentences = ''
         while c != '>':
             sentences += c
-            c = self.input_file.read(1)
+            c = text_file.read(1)
         sentences = sentences.replace('\n', '')
         return sentences
 
-    def get_text_batch(self, encode = False, batch_size = None):
+    def get_text_batch(self, batch_type, encode = False, batch_size = None):
+        if batch_type == 'validation':
+            text_file = self.validation_text
+        if batch_type == 'train':
+            text_file = self.train_text
+
         if batch_size is None:
             batch_size = self.batch_size
+
         #Gets batch from raw txt file, encodes words if 'encode' flag is on
         questions = [[] for i in range(batch_size)]
         answers = [[] for i in range(batch_size)]
         for i in range(batch_size):
             for j in range(self.num_variants * 2):
                 if j % 2 == 0:
-                    questions[i].append(self.read_qa())
+                    questions[i].append(self.read_qa(text_file=text_file))
                 else:
-                    answers[i].append(self.read_qa())
+                    answers[i].append(self.read_qa(text_file=text_file))
 
         if encode:
             _y = np.array([random.randint(0, self.num_variants - 1) for i in range(batch_size)])
@@ -75,31 +89,39 @@ class BatchGenerator:
         else:
             return answers, questions
 
-    def read_embedding(self):
+    def read_embedding(self, emb_file):
         #Reads one embedding from embedding file
-        return pickle.load(self.embedding_file)
+        return pickle.load(emb_file)
 
-    def sum_answer(self):
+    def sum_answer(self, emb_file, num):
         #Sums answer sentences embeddings with respect to number given in num_file
         embed_sum = np.zeros((1, 1024))
-        nxt = self.num.next()
+        nxt = num.next()
         #print(nxt)
         for i in range(nxt):
-            embed_sum += self.read_embedding()
+            embed_sum += self.read_embedding(emb_file)
         return embed_sum
 
 
-    def get_sum_batch(self, batch_size = None):
+    def get_sum_batch(self, batch_type, batch_size = None):
+        if batch_type == 'validation':
+            emb_file = self.validation_embeddings
+            num = self.validation_num
+        if batch_type == 'train':
+            emb_file = self.train_embeddings
+            num = self.train_num
+
         if batch_size is None:
             batch_size = self.batch_size
+
         answer_batch = np.zeros((batch_size, self.num_variants, 1024))
         question_batch = np.zeros((batch_size, 1024))
         _y_batch = np.array([random.randint(0, self.num_variants - 1) for i in range(batch_size)])
 
         for i in range(batch_size):
             for j in range(self.num_variants):
-                question = self.read_embedding()
-                answer = self.sum_answer()
+                question = self.read_embedding(emb_file=emb_file)
+                answer = self.sum_answer(emb_file=emb_file, num=num)
                 answer_batch[i, j] = answer[0]
                 if j == _y_batch[i]:
                     question_batch[i] = question[0]
@@ -108,9 +130,9 @@ class BatchGenerator:
 
 
 
-    def next_batch(self):
-        if self.mode == "sum":
-            return self.gen_sum_batch()
+    # def next_batch(self):
+    #     if self.mode == "sum":
+    #         return self.gen_sum_batch()
 
 
 # g = BatchGenerator(100, 'sum', 2)
