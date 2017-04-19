@@ -7,21 +7,22 @@ class BatchGenerator:
     def __init__(self, batch_size, mode = 'sum', num_variants = 2, encoding_length = 20):
         self.num_variants = num_variants
         self.batch_size = batch_size
-        self.input_file = open("data/yahoo_qa.txt", 'r')
-        self.embedding_file = open("data/embeddings.txt", "rb")
-        self.num = iter(map(int, open("data/num.txt", "r").read().split()))
+        self.input_file = open("data/yahoo_qa_shuffled.txt", 'rb')
+        self.embedding_file = open("data/embeddings_shuffled.txt", "rb")
+        self.num = pickle.load(open("data/num_shuffled.txt", "rb"))
+        # self.num = iter(map(int, open("data/num_shuffled.txt", "r").read().split()))
         self.mode = mode
-        self.encode_dict = pickle.load(open("data/encode_dict.txt", 'rb'))
+        self.encode_dict = pickle.load(open("data/encode_dict.txt", 'r'))
         self.encoding_length = encoding_length
         self.num_questions = 285254 / 2
 
-        self.train_text = open("data/train_text.txt", "r")
-        self.train_num = iter(map(int, open("data/train_num.txt", "r").read().split()))
-        self.train_embeddings = open("data/train_embeddings.txt", "rb")
+        self.train_text = open("data/train_text_shuffled.txt", "rb")
+        self.train_num = iter(pickle.load(open("data/train_num_shuffled.txt", "rb")))
+        self.train_embeddings = open("data/train_embeddings_shuffled.txt", "rb")
 
-        self.validation_text = open("data/validation_text.txt", "r")
-        self.validation_num = iter(map(int, open("data/validation_num.txt", "r").read().split()))
-        self.validation_embeddings = open("data/validation_embeddings.txt", "rb")
+        self.validation_text = open("data/validation_text_shuffled.txt", "rb")
+        self.validation_num = iter(pickle.load(open("data/validation_num_shuffled.txt", "rb")))
+        self.validation_embeddings = open("data/validation_embeddings_shuffled.txt", "rb")
 
     def encode_word(self, word):
         if word.lower() in self.encode_dict:
@@ -43,15 +44,21 @@ class BatchGenerator:
 
     def read_qa(self, text_file):
         #Reads sentences from text file, until meets > symbol
-        c = text_file.read(1)
-        if c == '':
+        # c = text_file.read(1)
+        # if c == '':
+        #     text_file.seek(0)
+        #     text_file.read(1)
+        # sentences = ''
+        # while c != '>':
+        #     sentences += c
+        #     c = text_file.read(1)
+        try:
+            sentences = pickle.load(text_file)
+        except EOFError:
             text_file.seek(0)
-            text_file.read(1)
-        sentences = ''
-        while c != '>':
-            sentences += c
-            c = text_file.read(1)
-        sentences = sentences.replace('\n', '')
+            sentences = pickle.load(text_file)
+        sentences = map(lambda x: x.replace('\n', ''), sentences)
+
         return sentences
 
     def get_text_batch(self, batch_type, encode = False, batch_size = None):
@@ -67,11 +74,10 @@ class BatchGenerator:
         questions = [[] for i in range(batch_size)]
         answers = [[] for i in range(batch_size)]
         for i in range(batch_size):
-            for j in range(self.num_variants * 2):
-                if j % 2 == 0:
-                    questions[i].append(self.read_qa(text_file=text_file))
-                else:
-                    answers[i].append(self.read_qa(text_file=text_file))
+            for j in range(self.num_variants):
+                question, answer = self.read_qa(text_file=text_file)
+                questions[i].append(question)
+                answers[i].append(answer)
 
         if encode:
             _y = np.array([random.randint(0, self.num_variants - 1) for i in range(batch_size)])
@@ -91,7 +97,11 @@ class BatchGenerator:
 
     def read_embedding(self, emb_file):
         #Reads one embedding from embedding file
-        return pickle.load(emb_file)
+        try:
+            return pickle.load(emb_file)
+        except EOFError:
+            emb_file.seek(0)
+            return pickle.load(emb_file)
 
     def sum_answer(self, emb_file, num):
         #Sums answer sentences embeddings with respect to number given in num_file
@@ -120,9 +130,10 @@ class BatchGenerator:
 
         for i in range(batch_size):
             for j in range(self.num_variants):
-                question = self.read_embedding(emb_file=emb_file)
-                answer = self.sum_answer(emb_file=emb_file, num=num)
-                answer_batch[i, j] = answer[0]
+                question, answer = self.read_embedding(emb_file=emb_file)
+                answer_batch[i, j] = sum(answer[:4])
+                # if len(answer) > 1:
+                #     answer_batch[i, j] = sum(answer)
                 if j == _y_batch[i]:
                     question_batch[i] = question[0]
 
