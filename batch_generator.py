@@ -113,7 +113,7 @@ class BatchGenerator:
         return embed_sum
 
 
-    def get_sum_batch(self, batch_type, batch_size = None):
+    def get_sum_batch(self, batch_type, batch_size = None, num_variants = None):
         if batch_type == 'validation':
             emb_file = self.validation_embeddings
             num = self.validation_num
@@ -124,12 +124,15 @@ class BatchGenerator:
         if batch_size is None:
             batch_size = self.batch_size
 
-        answer_batch = np.zeros((batch_size, self.num_variants, 1024))
+        if num_variants is None:
+            num_variants = self.num_variants
+
+        answer_batch = np.zeros((batch_size, num_variants, 1024))
         question_batch = np.zeros((batch_size, 1024))
-        _y_batch = np.array([random.randint(0, self.num_variants - 1) for i in range(batch_size)])
+        _y_batch = np.array([random.randint(0, num_variants - 1) for i in range(batch_size)])
 
         for i in range(batch_size):
-            for j in range(self.num_variants):
+            for j in range(num_variants):
                 question, answer = self.read_embedding(emb_file=emb_file)
                 answer_batch[i, j] = sum(answer[:4])
                 # if len(answer) > 1:
